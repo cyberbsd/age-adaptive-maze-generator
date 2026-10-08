@@ -1,0 +1,106 @@
+/* Theme CSS Design System - 4 Age-Level Color Palettes */
+
+:root {
+  --font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 1. Toddler Level (3-5 yrs) - Soft Pastel & Candy Sunshine */
+.theme-toddler {
+  --bg-gradient: linear-gradient(135deg, #FFF0F5 0%, #E6F8FF 50%, #FFFDE6 100%);
+  --panel-bg: rgba(255, 255, 255, 0.92);
+  --panel-border: #FFB7C5;
+  --primary: #FF6B8B;
+  --primary-hover: #FF477E;
+  --primary-light: #FFE3EA;
+  --secondary: #4D96FF;
+  --accent: #FFD93D;
+  --text-main: #332C39;
+  --text-muted: #6E6A75;
+  --maze-bg: #FFFFFF;
+  --maze-wall: #3B3646;
+  --maze-solution: #FF477E;
+  --maze-player: #FFD93D;
+  --card-radius: 20px;
+  --btn-radius: 16px;
+  --shadow-sm: 0 4px 14px rgba(255, 107, 139, 0.15);
+  --shadow-lg: 0 10px 30px rgba(255, 107, 139, 0.25);
+  --header-bg: rgba(255, 255, 255, 0.85);
+  --badge-bg: #FFE3EA;
+  --badge-text: #FF477E;
+}
+
+/* 2. Kids Level (6-8 yrs) - Jungle & Treasure Adventure */
+.theme-kids {
+  --bg-gradient: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 40%, #FEF3C7 100%);
+  --panel-bg: rgba(255, 255, 255, 0.92);
+  --panel-border: #A7F3D0;
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-light: #D1FAE5;
+  --secondary: #D97706;
+  --accent: #F59E0B;
+  --text-main: #1F2937;
+  --text-muted: #4B5563;
+  --maze-bg: #FAFDFB;
+  --maze-wall: #1E293B;
+  --maze-solution: #10B981;
+  --maze-player: #F59E0B;
+  --card-radius: 16px;
+  --btn-radius: 12px;
+  --shadow-sm: 0 4px 14px rgba(5, 150, 105, 0.15);
+  --shadow-lg: 0 10px 30px rgba(5, 150, 105, 0.2);
+  --header-bg: rgba(255, 255, 255, 0.88);
+  --badge-bg: #D1FAE5;
+  --badge-text: #047857;
+}
+
+/* 3. Teens Level (9-12 yrs) - Cyber Tech & Neon Indigo */
+.theme-teens {
+  --bg-gradient: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%);
+  --panel-bg: rgba(30, 41, 59, 0.85);
+  --panel-border: #38BDF8;
+  --primary: #38BDF8;
+  --primary-hover: #0284C7;
+  --primary-light: rgba(56, 189, 248, 0.15);
+  --secondary: #A855F7;
+  --accent: #F43F5E;
+  --text-main: #F8FAFC;
+  --text-muted: #94A3B8;
+  --maze-bg: #0B132B;
+  --maze-wall: #38BDF8;
+  --maze-solution: #A855F7;
+  --maze-player: #F43F5E;
+  --card-radius: 12px;
+  --btn-radius: 8px;
+  --shadow-sm: 0 4px 14px rgba(56, 189, 248, 0.25);
+  --shadow-lg: 0 10px 30px rgba(168, 85, 247, 0.3);
+  --header-bg: rgba(15, 23, 42, 0.9);
+  --badge-bg: rgba(56, 189, 248, 0.2);
+  --badge-text: #38BDF8;
+}
+
+/* 4. Adult Level (13+ yrs) - Minimalist Graphite & Slate */
+.theme-adult {
+  --bg-gradient: linear-gradient(135deg, #18181B 0%, #27272A 50%, #09090B 100%);
+  --panel-bg: rgba(24, 24, 27, 0.9);
+  --panel-border: #3F3F46;
+  --primary: #F59E0B;
+  --primary-hover: #D97706;
+  --primary-light: rgba(245, 158, 11, 0.12);
+  --secondary: #71717A;
+  --accent: #FAFAFA;
+  --text-main: #FAFAFA;
+  --text-muted: #A1A1AA;
+  --maze-bg: #121215;
+  --maze-wall: #E4E4E7;
+  --maze-solution: #F59E0B;
+  --maze-player: #38BDF8;
+  --card-radius: 8px;
+  --btn-radius: 6px;
+  --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.6);
+  --header-bg: rgba(24, 24, 27, 0.95);
+  --badge-bg: rgba(245, 158, 11, 0.2);
+  --badge-text: #F59E0B;
+}
