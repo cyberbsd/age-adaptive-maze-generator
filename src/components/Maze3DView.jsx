@@ -7,6 +7,7 @@ import {
   GRAVITY,
   JUMP_SPEED,
   MOVE_SPEED,
+  FOV_Y,
   PITCH_MAX,
   collectWallSegments,
   jumpApex,
@@ -72,7 +73,7 @@ export default function Maze3DView({
     const height = mount.clientHeight || 480;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, width / height, 0.08, 200);
+    const camera = new THREE.PerspectiveCamera(FOV_Y, width / height, 0.08, 240);
     camera.rotation.order = 'YXZ';
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -85,7 +86,7 @@ export default function Maze3DView({
     const boxes = segmentBoxes(segments);
     const world = buildTopic(scene, segments, topic.id, maze.cols, maze.rows);
 
-    const playerLight = new THREE.PointLight(topic.light, topic.id === 'spaceship' ? 2.4 : 1.3, 16);
+    const playerLight = new THREE.PointLight(topic.light, topic.id === 'spaceship' ? 0.8 : 1.3, topic.id === 'spaceship' ? 28 : 16);
     scene.add(playerLight);
 
     const goalGeo = new THREE.TorusGeometry(0.7, 0.16, 12, 28);

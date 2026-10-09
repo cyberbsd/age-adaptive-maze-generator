@@ -1,11 +1,11 @@
-/** Opaque world materials. Spaceship replaces the misread "alien sheep" topic. */
+/** Opaque world materials: stone, plants, and a future spaceship hull. */
 
 export const WORLD_TOPICS = {
   stone: {
     id: 'stone',
     name: '石牆',
     sky: 0x9aa3ad,
-    fog: 0.032,
+    fog: 0.04,
     floor: 0x5c564e,
     wall: 0x8d8478,
     roughness: 0.92,
@@ -18,7 +18,7 @@ export const WORLD_TOPICS = {
     id: 'plants',
     name: '植物',
     sky: 0xcfe8ff,
-    fog: 0.028,
+    fog: 0.032,
     floor: 0x7dba6a,
     wall: 0x2f6b3a,
     roughness: 1,
@@ -30,15 +30,15 @@ export const WORLD_TOPICS = {
   spaceship: {
     id: 'spaceship',
     name: '未來飛船',
-    sky: 0x070b14,
-    fog: 0.055,
-    floor: 0x121820,
-    wall: 0x243044,
-    roughness: 0.28,
-    metalness: 0.82,
+    sky: 0xd5dbe3,
+    fog: 0.022,
+    floor: 0xa8b0b8,
+    wall: 0xd8dde3,
+    roughness: 0.62,
+    metalness: 0.08,
     emissive: 0x22d3ee,
     goal: 0x22d3ee,
-    light: 0x7dd3fc,
+    light: 0xf7f8fa,
     defaultForAges: ['teens'],
   },
 };

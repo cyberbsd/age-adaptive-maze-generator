@@ -3,25 +3,40 @@ import { WALL_H, CELL } from './mazeWorld.js';
 import { WORLD_TOPICS } from './worldTopics.js';
 
 const UP_QUAT = new THREE.Quaternion();
+const loader = new THREE.TextureLoader();
 
-function stoneTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#8d8478';
-  ctx.fillRect(0, 0, 128, 128);
-  for (let i = 0; i < 1800; i++) {
-    const shade = 90 + Math.floor(Math.random() * 80);
-    ctx.fillStyle = `rgb(${shade},${shade - 6},${shade - 12})`;
-    ctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
-  }
-  const texture = new THREE.CanvasTexture(canvas);
+const TOPIC_MAPS = {
+  stone: { wall: '/textures/stone.jpg', floor: '/textures/stone.jpg', wallTile: 0.42, floorTile: 0.4 },
+  plants: { wall: '/textures/hedge.jpg', floor: '/textures/grass.jpg', wallTile: 0.9, floorTile: 0.75 },
+  spaceship: { wall: '/textures/hull-gray.jpg', floor: '/textures/deck-gray.jpg', wallTile: 0.55, floorTile: 0.85 },
+};
+
+function loadMap(url) {
+  const texture = loader.load(url);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(2, 2);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
   return texture;
+}
+
+function tileWalls(material, tilesPerUnit) {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.tilesPerUnit = { value: tilesPerUnit };
+    shader.vertexShader = `uniform float tilesPerUnit;\n${shader.vertexShader.replace(
+      '#include <uv_vertex>',
+      `#include <uv_vertex>
+       #ifdef USE_MAP
+         #ifdef USE_INSTANCING
+           vec4 tileWorld = instanceMatrix * vec4( position, 1.0 );
+         #else
+           vec4 tileWorld = modelMatrix * vec4( position, 1.0 );
+         #endif
+         vMapUv = vec2( tileWorld.x + tileWorld.z, tileWorld.y ) * tilesPerUnit;
+       #endif`
+    )}`;
+  };
+  material.customProgramCacheKey = () => `wall-tile-${tilesPerUnit}`;
 }
 
 function paint(mesh, segments, scaleOf, yOf) {
@@ -60,16 +75,22 @@ export function buildTopic(scene, segments, topicId, cols, rows) {
   scene.background = new THREE.Color(topic.sky);
   scene.fog = new THREE.FogExp2(topic.sky, topic.fog);
 
-  const ambient = new THREE.AmbientLight(0xffffff, topic.id === 'spaceship' ? 0.28 : 0.62);
-  const hemi = new THREE.HemisphereLight(topic.sky, topic.floor, topic.id === 'spaceship' ? 0.35 : 0.55);
+  const ambient = new THREE.AmbientLight(0xffffff, topic.id === 'spaceship' ? 0.95 : 0.62);
+  const hemi = new THREE.HemisphereLight(topic.sky, topic.floor, topic.id === 'spaceship' ? 0.72 : 0.55);
   scene.add(ambient, hemi);
   disposables.push(ambient, hemi);
 
+  const maps = TOPIC_MAPS[topic.id] || TOPIC_MAPS.stone;
+  const wallMap = loadMap(maps.wall);
+  const floorTex = loadMap(maps.floor);
+  floorTex.repeat.set(cols * CELL * maps.floorTile, rows * CELL * maps.floorTile);
+
   const floorGeo = new THREE.PlaneGeometry(cols * CELL, rows * CELL);
   const floorMat = new THREE.MeshStandardMaterial({
-    color: topic.floor,
-    roughness: topic.id === 'spaceship' ? 0.45 : 0.95,
-    metalness: topic.id === 'spaceship' ? 0.55 : 0,
+    map: floorTex,
+    color: 0xffffff,
+    roughness: topic.id === 'spaceship' ? 0.72 : 0.92,
+    metalness: topic.id === 'spaceship' ? 0.04 : 0,
   });
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2;
@@ -78,14 +99,15 @@ export function buildTopic(scene, segments, topicId, cols, rows) {
   disposables.push(floor);
 
   const wallMat = new THREE.MeshStandardMaterial({
-    color: topic.wall,
+    map: wallMap,
+    color: 0xffffff,
     roughness: topic.roughness,
     metalness: topic.metalness,
+    emissive: 0x000000,
+    emissiveIntensity: 0,
     side: THREE.DoubleSide,
   });
-  if (topic.id === 'stone') {
-    wallMat.map = stoneTexture();
-  }
+  tileWalls(wallMat, maps.wallTile);
   const wallGeo = new THREE.BoxGeometry(1, 1, 1);
   addInstanced(
     scene,
@@ -141,15 +163,15 @@ export function buildTopic(scene, segments, topicId, cols, rows) {
         ? [segment.w * 0.92, 0.08, segment.d + 0.04]
         : [segment.w + 0.04, 0.08, segment.d * 0.92]
     );
-    addInstanced(scene, stripGeo, stripMat, segments, stripScale, () => 1.7, disposables);
+    addInstanced(scene, stripGeo, stripMat, segments, stripScale, () => 1.25, disposables);
     const upper = stripMat.clone();
     upper.emissiveIntensity = 0.45;
-    addInstanced(scene, stripGeo, upper, segments, stripScale, () => 5.15, disposables);
+    addInstanced(scene, stripGeo, upper, segments, stripScale, () => 3.15, disposables);
 
     const moonGeo = new THREE.SphereGeometry(4, 24, 16);
     const moonMat = new THREE.MeshBasicMaterial({ color: 0xc5d4e8 });
     const moon = new THREE.Mesh(moonGeo, moonMat);
-    moon.position.set(cols * CELL * 0.2, 28, -18);
+    moon.position.set(cols * CELL * 0.2, WALL_H + 24, -18);
     scene.add(moon);
     disposables.push(moon);
   }
@@ -171,7 +193,10 @@ export function buildTopic(scene, segments, topicId, cols, rows) {
         for (const material of materials) {
           if (seenMat.has(material)) continue;
           seenMat.add(material);
-          if (material.map) material.map.dispose();
+          if (material.map && !seenGeo.has(material.map)) {
+            seenGeo.add(material.map);
+            material.map.dispose();
+          }
           material.dispose();
         }
       }

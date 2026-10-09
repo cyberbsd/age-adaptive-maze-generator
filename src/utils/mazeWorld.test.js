@@ -49,14 +49,14 @@ test('player radius fits the passage', () => {
 });
 
 test('the highest jump stays well below the wall top', () => {
-  assert.equal(WALL_H, 6);
   assert.ok(jumpApex() < 1);
-  assert.ok(maxEyeY() + 2 < WALL_H);
+  assert.ok(maxEyeY() + 4 < WALL_H);
 });
 
 test('pitch at the jump peak cannot see over a corridor wall', () => {
   assert.equal(seesOverWall(maxEyeY(), corridorHalfWidth()), false);
   assert.equal(seesOverWall(1.6, corridorHalfWidth()), false);
+  assert.equal(seesOverWall(maxEyeY(), CELL), false);
 });
 
 test('three camera yaw 0 looks down -Z and its right is +X', () => {

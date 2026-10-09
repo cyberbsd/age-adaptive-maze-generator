@@ -5,14 +5,17 @@
  */
 
 export const CELL = 3;
-export const WALL_H = 6;
+export const WALL_H = 9;
 export const WALL_T = 0.42;
 export const PLAYER_R = 0.3;
 export const EYE_Y = 1.6;
 export const MOVE_SPEED = 4.2;
 export const JUMP_SPEED = 5.2;
 export const GRAVITY = 16;
-export const PITCH_MAX = 1.05;
+/** ~31°. The near wall still fills the view at the top of a jump. */
+export const PITCH_MAX = 0.55;
+/** Vertical field of view in degrees. */
+export const FOV_Y = 60;
 
 export function jumpApex(jumpSpeed = JUMP_SPEED, gravity = GRAVITY) {
   return (jumpSpeed * jumpSpeed) / (2 * gravity);
@@ -26,11 +29,19 @@ export function corridorHalfWidth() {
   return (CELL - WALL_T) / 2;
 }
 
-/** True when a pitched look from eyeY can see past the wall top at distToFace. */
-export function seesOverWall(eyeY, distToFace, pitchMax = PITCH_MAX) {
+/** Pitch of the top edge of the view, including the vertical field of view. */
+export function frustumTopPitch(pitchMax = PITCH_MAX, fovDeg = FOV_Y) {
+  return pitchMax + (fovDeg * Math.PI) / 360;
+}
+
+/**
+ * True when any part of the view from eyeY can see past the wall top at distToFace.
+ * The check uses the top of the picture, not only the crosshair.
+ */
+export function seesOverWall(eyeY, distToFace, pitchMax = PITCH_MAX, fovDeg = FOV_Y) {
   if (eyeY >= WALL_H) return true;
   if (distToFace <= 0) return false;
-  return pitchMax >= Math.atan((WALL_H - eyeY) / distToFace);
+  return frustumTopPitch(pitchMax, fovDeg) >= Math.atan((WALL_H - eyeY) / distToFace);
 }
 
 /**
