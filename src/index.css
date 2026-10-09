@@ -82,6 +82,10 @@ button, input, select {
     flex-direction: column;
     gap: 1.25rem;
   }
+
+  .workspace-grid .workspace-view {
+    order: -1;
+  }
 }
 
 .maze-3d-stage {
@@ -90,6 +94,7 @@ button, input, select {
   border-radius: var(--card-radius, 12px);
   overflow: hidden;
   background: #111;
+  touch-action: none;
 }
 
 @media (min-width: 1024px) {
@@ -108,6 +113,32 @@ button, input, select {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.8);
   pointer-events: none;
+}
+
+.maze-3d-touch button {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@media (max-width: 1023px) {
+  .maze-3d-stage {
+    height: min(62vh, 520px);
+    min-height: 320px;
+  }
+
+  .maze-3d-note {
+    display: none;
+  }
+
+  .maze-3d-touch {
+    position: absolute;
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: 0.6rem;
+    margin-top: 0;
+    z-index: 2;
+  }
 }
 
 /* Buttons */
@@ -192,7 +223,18 @@ button, input, select {
   justify-content: center;
   font-size: 1.2rem;
   cursor: pointer;
+  touch-action: none;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+@media (max-width: 1023px) {
+  .dpad-container {
+    grid-template-columns: repeat(3, 58px);
+    grid-template-rows: repeat(3, 58px);
+    gap: 8px;
+  }
 }
 .dpad-btn:active {
   background: var(--primary);

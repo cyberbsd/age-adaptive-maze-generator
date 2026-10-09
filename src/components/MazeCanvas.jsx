@@ -3,6 +3,21 @@ import { ILLUSTRATION_SETS } from '../assets/illustrations';
 import { AGE_LEVELS } from '../utils/mazeGenerator';
 import { renderMazeOnCanvas } from '../utils/canvasRenderer';
 
+function cellOf(point, fallback) {
+  if (point && Number.isInteger(point.col) && Number.isInteger(point.row)) {
+    return { col: point.col, row: point.row };
+  }
+  return fallback;
+}
+
+function spawnOf(maze) {
+  return cellOf(maze?.start, { col: 0, row: 0 });
+}
+
+function goalOf(maze) {
+  return cellOf(maze?.end, maze ? { col: maze.cols - 1, row: maze.rows - 1 } : { col: 0, row: 0 });
+}
+
 export default function MazeCanvas({
   maze,
   currentAgeKey,
@@ -14,24 +29,48 @@ export default function MazeCanvas({
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Player position state (for rendering)
-  const [playerPos, setPlayerPos] = useState({ col: 0, row: 0 });
-  const [visitedPath, setVisitedPath] = useState([{ col: 0, row: 0 }]);
+  // Player position state (for rendering). Shaped mazes do not start at (0, 0).
+  const [playerPos, setPlayerPos] = useState(() => spawnOf(maze));
+  const [visitedPath, setVisitedPath] = useState(() => [spawnOf(maze)]);
   const [stepCount, setStepCount] = useState(0);
+  const [coarsePointer] = useState(() => window.matchMedia('(pointer: coarse)').matches);
 
   // Authoritative game progress, read/written synchronously by movePlayer
-  const gameRef = useRef({ pos: { col: 0, row: 0 }, steps: 0, startTime: Date.now(), completed: false });
+  const gameRef = useRef({ pos: spawnOf(maze), steps: 0, startTime: Date.now(), completed: false });
+  const moveRef = useRef(null);
+  const holdTimer = useRef(null);
+  const holdId = useRef(null);
+  const swipeRef = useRef(null);
 
   const ageInfo = AGE_LEVELS[currentAgeKey.toUpperCase()] || AGE_LEVELS.TODDLER;
   const currentSet = ILLUSTRATION_SETS[illustrationSetId] || ILLUSTRATION_SETS['rabbit-carrot'];
 
+  const clearHold = () => {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+    holdId.current = null;
+  };
+
   // Reset player when maze changes
   useEffect(() => {
-    gameRef.current = { pos: { col: 0, row: 0 }, steps: 0, startTime: Date.now(), completed: false };
-    setPlayerPos({ col: 0, row: 0 });
-    setVisitedPath([{ col: 0, row: 0 }]);
+    const start = spawnOf(maze);
+    clearHold();
+    gameRef.current = { pos: start, steps: 0, startTime: Date.now(), completed: false };
+    setPlayerPos(start);
+    setVisitedPath([start]);
     setStepCount(0);
+    return clearHold;
   }, [maze]);
+
+  useEffect(() => {
+    if (window.innerWidth >= 1024) return undefined;
+    const id = window.setTimeout(() => {
+      containerRef.current?.scrollIntoView({ block: 'start' });
+    }, 60);
+    return () => window.clearTimeout(id);
+  }, []);
 
   // Handle movement logic
   const movePlayer = useCallback((dir) => {
@@ -39,7 +78,8 @@ export default function MazeCanvas({
     if (game.completed || !maze) return;
 
     const { col, row } = game.pos;
-    const cell = maze.grid[row][col];
+    const cell = maze.grid[row]?.[col];
+    if (!cell?.active) return;
     let newCol = col;
     let newRow = row;
 
@@ -49,6 +89,7 @@ export default function MazeCanvas({
     if (dir === 'right' && !cell.walls.right && col < maze.cols - 1) newCol++;
 
     if (newCol === col && newRow === row) return; // blocked by a wall
+    if (!maze.grid[newRow]?.[newCol]?.active) return;
 
     const nextPos = { col: newCol, row: newRow };
     game.pos = nextPos;
@@ -58,8 +99,8 @@ export default function MazeCanvas({
     setVisitedPath(path => [...path, nextPos]);
     setStepCount(game.steps);
 
-    // Check victory
-    if (newCol === maze.cols - 1 && newRow === maze.rows - 1) {
+    const goal = goalOf(maze);
+    if (newCol === goal.col && newRow === goal.row) {
       game.completed = true;
       const stats = {
         steps: game.steps,
@@ -70,6 +111,8 @@ export default function MazeCanvas({
       }, 150);
     }
   }, [maze, onVictory]);
+
+  moveRef.current = movePlayer;
 
   // Keyboard navigation
   useEffect(() => {
@@ -98,30 +141,65 @@ export default function MazeCanvas({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [movePlayer]);
 
-  // Touch swipe handling
-  const touchStartRef = useRef(null);
-
-  const handleTouchStart = (e) => {
-    const touch = e.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  // One step per swipe. Pointer events cover touch, pen, and mouse drag.
+  const onSwipeDown = (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    swipeRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* pointer already gone */ }
   };
 
-  const handleTouchEnd = (e) => {
-    if (!touchStartRef.current) return;
-    const touch = e.changedTouches[0];
-    const dx = touch.clientX - touchStartRef.current.x;
-    const dy = touch.clientY - touchStartRef.current.y;
+  const onSwipeUp = (event) => {
+    const start = swipeRef.current;
+    if (!start || start.id !== event.pointerId) return;
+    swipeRef.current = null;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
     const minDistance = 25;
-
-    if (Math.abs(dx) > Math.abs(dy)) {
-      if (dx > minDistance) movePlayer('right');
-      else if (dx < -minDistance) movePlayer('left');
-    } else {
-      if (dy > minDistance) movePlayer('down');
-      else if (dy < -minDistance) movePlayer('up');
-    }
-    touchStartRef.current = null;
+    if (Math.abs(dx) < minDistance && Math.abs(dy) < minDistance) return;
+    if (Math.abs(dx) > Math.abs(dy)) moveRef.current(dx > 0 ? 'right' : 'left');
+    else moveRef.current(dy > 0 ? 'down' : 'up');
   };
+
+  const onSwipeCancel = (event) => {
+    if (swipeRef.current?.id === event.pointerId) swipeRef.current = null;
+  };
+
+  // Hold a direction button to keep stepping. Release only on up/cancel.
+  const pressDir = (dir) => (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* pointer already gone */ }
+    clearHold();
+    holdId.current = event.pointerId;
+    moveRef.current(dir);
+    const arm = (delay) => {
+      holdTimer.current = setTimeout(() => {
+        if (holdId.current !== event.pointerId) return;
+        moveRef.current(dir);
+        arm(180);
+      }, delay);
+    };
+    arm(280);
+  };
+
+  const releaseDir = (event) => {
+    if (holdId.current !== null && event.pointerId !== holdId.current) return;
+    clearHold();
+  };
+
+  const padButton = (dir, className, label) => (
+    <button
+      type="button"
+      className={`dpad-btn ${className}`}
+      aria-label={label}
+      onPointerDown={pressDir(dir)}
+      onPointerUp={releaseDir}
+      onPointerCancel={releaseDir}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      {label}
+    </button>
+  );
 
   // Track the available width so the canvas resizes with the window / device rotation
   const [displaySize, setDisplaySize] = useState(500);
@@ -223,6 +301,7 @@ export default function MazeCanvas({
 
       {/* Canvas Wrapper */}
       <div
+        className="maze-play-surface"
         style={{
           position: 'relative',
           display: 'inline-block',
@@ -231,16 +310,17 @@ export default function MazeCanvas({
           boxShadow: 'var(--shadow-sm)',
           touchAction: 'none'
         }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+        onPointerDown={onSwipeDown}
+        onPointerUp={onSwipeUp}
+        onPointerCancel={onSwipeCancel}
       >
-        <canvas ref={canvasRef} style={{ display: 'block' }} />
+        <canvas ref={canvasRef} style={{ display: 'block', touchAction: 'none' }} />
 
-        {/* Goal icon, centered on the goal cell */}
-        <div style={{
+        {/* Goal icon, centered on the real exit */}
+        <div className="maze-goal-token" style={{
           position: 'absolute',
-          left: `${(maze.cols - 0.5) * cellPx - iconSize / 2}px`,
-          top: `${(maze.rows - 0.5) * cellPx - iconSize / 2}px`,
+          left: `${(goalOf(maze).col + 0.5) * cellPx - iconSize / 2}px`,
+          top: `${(goalOf(maze).row + 0.5) * cellPx - iconSize / 2}px`,
           width: `${iconSize}px`,
           height: `${iconSize}px`,
           pointerEvents: 'none'
@@ -249,7 +329,7 @@ export default function MazeCanvas({
         </div>
 
         {/* Start character doubles as the player marker and moves with the player */}
-        <div style={{
+        <div className="maze-player-token" style={{
           position: 'absolute',
           left: `${(playerPos.col + 0.5) * cellPx - iconSize / 2}px`,
           top: `${(playerPos.row + 0.5) * cellPx - iconSize / 2}px`,
@@ -263,18 +343,20 @@ export default function MazeCanvas({
         </div>
       </div>
 
-      {/* Mobile Virtual D-Pad */}
+      {/* Virtual D-Pad. Stays under the canvas so it never covers the exit. */}
       {showDpad && (
         <div className="dpad-container">
-          <button className="dpad-btn dpad-up" onClick={() => movePlayer('up')}>▲</button>
-          <button className="dpad-btn dpad-left" onClick={() => movePlayer('left')}>◀</button>
-          <button className="dpad-btn dpad-right" onClick={() => movePlayer('right')}>▶</button>
-          <button className="dpad-btn dpad-down" onClick={() => movePlayer('down')}>▼</button>
+          {padButton('up', 'dpad-up', '▲')}
+          {padButton('left', 'dpad-left', '◀')}
+          {padButton('right', 'dpad-right', '▶')}
+          {padButton('down', 'dpad-down', '▼')}
         </div>
       )}
 
       <div style={{ marginTop: '0.85rem', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-        💡 提示：支援鍵盤方向鍵 (WASD) 或在畫布上直接滑動拖曳走迷宮！
+        {coarsePointer
+          ? '💡 提示：在迷宮上滑動一步，或按住方向鍵連續行走。'
+          : '💡 提示：支援鍵盤方向鍵 (WASD) 或在畫布上直接滑動拖曳走迷宮！'}
       </div>
 
     </div>

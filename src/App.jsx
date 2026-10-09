@@ -232,9 +232,9 @@ export default function App() {
 
         {/* Tab View: Generator & Play vs A4 Print Preview */}
         {activeTab !== 'print' ? (
-          <div className="workspace-grid">
+          <div className={`workspace-grid${activeTab === 'walk' ? ' walk-mode' : ''}`}>
             {/* Control Panel */}
-            <div className="no-print">
+            <div className="no-print workspace-controls">
               <ControlPanel
                 currentAgeKey={currentAgeKey}
                 gridSize={gridSize}
@@ -261,7 +261,7 @@ export default function App() {
             </div>
 
             {/* Interactive Maze Canvas or first-person walk */}
-            <div>
+            <div className="workspace-view">
               {maze && activeTab === 'walk' && (
                 <Maze3DView
                   maze={maze}

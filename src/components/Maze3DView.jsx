@@ -53,9 +53,13 @@ export default function Maze3DView({
   });
   const yawNudgeRef = useRef(0);
 
+  const frameRef = useRef(null);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [stepCount, setStepCount] = useState(0);
   const [locked, setLocked] = useState(false);
+  const [coarsePointer] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+  ));
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -213,28 +217,67 @@ export default function Maze3DView({
       renderer.setSize(w, h);
     };
     window.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
 
-    const onClick = () => {
-      renderer.domElement.requestPointerLock();
-    };
-    const onLock = () => setLocked(document.pointerLockElement === renderer.domElement);
-    const onMouseMove = (event) => {
-      if (document.pointerLockElement !== renderer.domElement) return;
-      camera.rotation.y -= event.movementX * 0.002;
-      camera.rotation.x -= event.movementY * 0.002;
+    const canvas = renderer.domElement;
+    canvas.style.touchAction = 'none';
+    const finePointer = window.matchMedia('(pointer: fine)').matches;
+    let lookId = null;
+    let lastX = 0;
+    let lastY = 0;
+    const clampPitch = () => {
       camera.rotation.x = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, camera.rotation.x));
     };
-    mount.addEventListener('click', onClick);
-    document.addEventListener('pointerlockchange', onLock);
+    const applyLook = (dx, dy, sensitivity) => {
+      camera.rotation.y -= dx * sensitivity;
+      camera.rotation.x -= dy * sensitivity;
+      clampPitch();
+    };
+    const onPointerDown = (event) => {
+      if (event.pointerType === 'mouse' && finePointer && canvas.requestPointerLock) {
+        const lock = canvas.requestPointerLock();
+        if (lock && typeof lock.catch === 'function') lock.catch(() => {});
+        return;
+      }
+      if (lookId !== null) return;
+      lookId = event.pointerId;
+      lastX = event.clientX;
+      lastY = event.clientY;
+      try { canvas.setPointerCapture(event.pointerId); } catch { /* pointer already gone */ }
+    };
+    const onPointerMove = (event) => {
+      if (event.pointerId !== lookId) return;
+      applyLook(event.clientX - lastX, event.clientY - lastY, 0.005);
+      lastX = event.clientX;
+      lastY = event.clientY;
+    };
+    const onMouseMove = (event) => {
+      if (document.pointerLockElement !== canvas) return;
+      applyLook(event.movementX, event.movementY, 0.002);
+    };
+    const endLook = (event) => {
+      if (event.pointerId !== lookId) return;
+      lookId = null;
+    };
+    const onLock = () => setLocked(document.pointerLockElement === canvas);
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', endLook);
+    canvas.addEventListener('pointercancel', endLook);
     window.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('pointerlockchange', onLock);
 
     return () => {
       cancelAnimationFrame(frameId);
       window.clearTimeout(winTimer);
       window.removeEventListener('resize', onResize);
-      mount.removeEventListener('click', onClick);
-      document.removeEventListener('pointerlockchange', onLock);
+      window.visualViewport?.removeEventListener('resize', onResize);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerup', endLook);
+      canvas.removeEventListener('pointercancel', endLook);
       window.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('pointerlockchange', onLock);
       if (document.pointerLockElement) document.exitPointerLock();
       world.dispose();
       goalGeo.dispose();
@@ -284,8 +327,29 @@ export default function Maze3DView({
     keysRef.current[name] = active;
   };
 
+  const press = (name) => (event) => {
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* pointer already gone */ }
+    hold(name, true);
+  };
+  const release = (name) => () => hold(name, false);
+
+  useEffect(() => {
+    if (window.innerWidth >= 1024) return undefined;
+    const id = window.setTimeout(() => {
+      frameRef.current?.scrollIntoView({ block: 'start' });
+    }, 60);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  const control = (name) => ({
+    onPointerDown: press(name),
+    onPointerUp: release(name),
+    onPointerCancel: release(name),
+    onContextMenu: (event) => event.preventDefault(),
+  });
+
   return (
-    <div className="glass-panel" style={{ padding: '1.25rem', position: 'relative' }}>
+    <div ref={frameRef} className="glass-panel" style={{ padding: '1.25rem', position: 'relative' }}>
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -297,7 +361,9 @@ export default function Maze3DView({
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span className="badge"><Footprints size={14} /> 第一人稱漫步</span>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {locked ? '滑鼠環顧，WASD 移動，空白鍵跳躍' : '點擊畫面鎖定滑鼠'}
+            {coarsePointer
+              ? '拖曳畫面環顧，按住按鈕行走'
+              : (locked ? '滑鼠環顧，WASD 移動，空白鍵跳躍' : '點擊畫面鎖定滑鼠')}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.85rem' }}>
@@ -314,10 +380,10 @@ export default function Maze3DView({
         <div className="maze-3d-crosshair" />
       </div>
 
-      <div style={{
+      <div className="maze-3d-touch" style={{
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         marginTop: '1rem',
         gap: '0.75rem',
       }}>
@@ -326,9 +392,7 @@ export default function Maze3DView({
             type="button"
             className="btn btn-secondary"
             style={{ width: '54px', height: '54px', padding: 0, borderRadius: '50%' }}
-            onPointerDown={() => hold('turnLeft', true)}
-            onPointerUp={() => hold('turnLeft', false)}
-            onPointerLeave={() => hold('turnLeft', false)}
+            {...control('turnLeft')}
           >
             ↺
           </button>
@@ -336,15 +400,13 @@ export default function Maze3DView({
             type="button"
             className="btn btn-secondary"
             style={{ width: '54px', height: '54px', padding: 0, borderRadius: '50%' }}
-            onPointerDown={() => hold('turnRight', true)}
-            onPointerUp={() => hold('turnRight', false)}
-            onPointerLeave={() => hold('turnRight', false)}
+            {...control('turnRight')}
           >
             ↻
           </button>
         </div>
 
-        <div style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+        <div className="maze-3d-note" style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
           滑鼠環顧 · WASD 行走 · 空白鍵跳躍。牆高過任何跳躍。
         </div>
 
@@ -354,9 +416,7 @@ export default function Maze3DView({
               type="button"
               className="btn btn-primary"
               style={{ width: '60px', height: '42px', padding: 0 }}
-              onPointerDown={() => hold('forward', true)}
-              onPointerUp={() => hold('forward', false)}
-              onPointerLeave={() => hold('forward', false)}
+              {...control('forward')}
             >
               ▲
             </button>
@@ -364,9 +424,7 @@ export default function Maze3DView({
               type="button"
               className="btn btn-secondary"
               style={{ width: '60px', height: '42px', padding: 0 }}
-              onPointerDown={() => hold('backward', true)}
-              onPointerUp={() => hold('backward', false)}
-              onPointerLeave={() => hold('backward', false)}
+              {...control('backward')}
             >
               ▼
             </button>
@@ -375,9 +433,7 @@ export default function Maze3DView({
             type="button"
             className="btn btn-primary"
             style={{ width: '54px', height: '54px', padding: 0 }}
-            onPointerDown={() => hold('jump', true)}
-            onPointerUp={() => hold('jump', false)}
-            onPointerLeave={() => hold('jump', false)}
+            {...control('jump')}
           >
             跳
           </button>
