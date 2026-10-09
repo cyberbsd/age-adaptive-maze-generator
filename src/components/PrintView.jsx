@@ -3,6 +3,7 @@ import { ILLUSTRATION_SETS } from '../assets/illustrations';
 import { AGE_LEVELS } from '../utils/mazeGenerator';
 import { Printer, Download } from 'lucide-react';
 import { exportToPDF, triggerBrowserPrint } from '../utils/pdfExporter';
+import { renderMazeOnCanvas } from '../utils/canvasRenderer';
 
 export default function PrintView({
   maze,
@@ -30,73 +31,16 @@ export default function PrintView({
       canvas.width = size;
       canvas.height = size;
 
-      const cols = maze.cols;
-      const rows = maze.rows;
-      const cellSize = size / cols;
-      const wallWidth = Math.max(3, cellSize * ageInfo.wallWidthRatio);
-
-      // White bg
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, size, size);
-
-      // Draw Solution Path if requested
-      if (drawSolution && maze.solution) {
-        ctx.beginPath();
-        ctx.strokeStyle = '#EF4444';
-        ctx.lineWidth = Math.max(8, cellSize * 0.3);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        maze.solution.forEach((p, idx) => {
-          const x = p.col * cellSize + cellSize / 2;
-          const y = p.row * cellSize + cellSize / 2;
-          if (idx === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-      }
-
-      // Draw Walls
-      ctx.strokeStyle = '#111827';
-      ctx.lineWidth = wallWidth;
-      ctx.lineCap = 'round';
-
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cell = maze.grid[r][c];
-          const x = c * cellSize;
-          const y = r * cellSize;
-
-          if (cell.walls.top) {
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + cellSize, y);
-            ctx.stroke();
-          }
-          if (cell.walls.right) {
-            ctx.beginPath();
-            ctx.moveTo(x + cellSize, y);
-            ctx.lineTo(x + cellSize, y + cellSize);
-            ctx.stroke();
-          }
-          if (cell.walls.bottom) {
-            ctx.beginPath();
-            ctx.moveTo(x, y + cellSize);
-            ctx.lineTo(x + cellSize, y + cellSize);
-            ctx.stroke();
-          }
-          if (cell.walls.left) {
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x, y + cellSize);
-            ctx.stroke();
-          }
-        }
-      }
-
-      // Outer Frame
-      ctx.lineWidth = wallWidth * 1.5;
-      ctx.strokeRect(0, 0, size, size);
+      renderMazeOnCanvas(ctx, maze, {
+        displaySize: size,
+        wallColor: '#111827',
+        bgColor: '#FFFFFF',
+        wallWidthRatio: ageInfo.wallWidthRatio,
+        lineStyle: maze.lineStyle || ageInfo.defaultLineStyle || 'rounded',
+        solutionColor: '#EF4444',
+        showSolution: drawSolution,
+        isPrint: true
+      });
     };
 
     renderMazeToCanvas(mazeCanvasRef.current, false);

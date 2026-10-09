@@ -1,12 +1,16 @@
 import React from 'react';
-import { Image as ImageIcon, Eye, FileText, CheckSquare, Sliders, Gamepad2 } from 'lucide-react';
+import { Image as ImageIcon, Eye, FileText, CheckSquare, Sliders, Gamepad2, Shapes, Sparkles } from 'lucide-react';
 import { ILLUSTRATION_SETS } from '../assets/illustrations';
-import { AGE_LEVELS } from '../utils/mazeGenerator';
+import { AGE_LEVELS, MAZE_SHAPES, LINE_STYLES } from '../utils/mazeGenerator';
 
 export default function ControlPanel({
   currentAgeKey,
   gridSize,
   onSizeChange,
+  mazeShape,
+  onShapeChange,
+  lineStyle,
+  onLineStyleChange,
   illustrationSetId,
   setIllustrationSetId,
   showSolution,
@@ -33,15 +37,86 @@ export default function ControlPanel({
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--panel-border)', paddingBottom: '0.75rem' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Sliders size={18} color="var(--primary)" /> 迷宮設定與參數調整
+          <Sliders size={18} color="var(--primary)" /> 迷宮造型與參數設定
         </h3>
       </div>
 
-      {/* Grid Dimensions */}
+      {/* 1. 迷宮外觀造型 (Shape) */}
+      <div>
+        <label style={{ fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+          <Shapes size={16} color="var(--primary)" /> 迷宮外觀造型 (Shape)
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+          {Object.values(MAZE_SHAPES).map(shape => {
+            const isSelected = (mazeShape || 'square') === shape.id;
+            return (
+              <button
+                key={shape.id}
+                type="button"
+                onClick={() => onShapeChange(shape.id)}
+                style={{
+                  padding: '0.55rem 0.75rem',
+                  borderRadius: 'var(--btn-radius)',
+                  border: isSelected ? '2px solid var(--primary)' : '1px solid var(--panel-border)',
+                  background: isSelected ? 'var(--primary-light)' : 'var(--panel-bg)',
+                  color: isSelected ? 'var(--primary)' : 'var(--text-main)',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                  transition: 'var(--transition-smooth)'
+                }}
+              >
+                <span>{shape.name}</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>{shape.description}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 2. 線條與拐角風格 (Line Style) */}
+      <div>
+        <label style={{ fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+          <Sparkles size={16} color="var(--primary)" /> 線條風格 (圓弧 / 波浪 / 直線)
+        </label>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {Object.values(LINE_STYLES).map(style => {
+            const isSelected = (lineStyle || 'rounded') === style.id;
+            return (
+              <button
+                key={style.id}
+                type="button"
+                onClick={() => onLineStyleChange(style.id)}
+                style={{
+                  flex: 1,
+                  padding: '0.5rem 0.4rem',
+                  borderRadius: 'var(--btn-radius)',
+                  border: isSelected ? '2px solid var(--primary)' : '1px solid var(--panel-border)',
+                  background: isSelected ? 'var(--primary-light)' : 'var(--panel-bg)',
+                  color: isSelected ? 'var(--primary)' : 'var(--text-main)',
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  transition: 'var(--transition-smooth)'
+                }}
+              >
+                {style.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Grid Dimensions */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-          <span>迷宮網格尺寸 ({gridSize} × {gridSize})</span>
-          <span style={{ color: 'var(--text-muted)' }}>範圍: {currentAgeInfo.minGrid} ~ {currentAgeInfo.maxGrid}</span>
+          <span>迷宮密度尺寸 ({gridSize} × {gridSize})</span>
+          <span style={{ color: 'var(--text-muted)' }}>難度範圍: {currentAgeInfo.minGrid} ~ {currentAgeInfo.maxGrid}</span>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <input
@@ -55,7 +130,7 @@ export default function ControlPanel({
         </div>
       </div>
 
-      {/* Illustration Set Picker */}
+      {/* 4. Illustration Set Picker */}
       <div>
         <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
           <ImageIcon size={16} color="var(--primary)" /> 起終點主題圖案
@@ -91,7 +166,7 @@ export default function ControlPanel({
         </select>
       </div>
 
-      {/* Worksheet Custom Text */}
+      {/* 5. Worksheet Custom Text */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <div>
           <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem' }}>
@@ -136,7 +211,7 @@ export default function ControlPanel({
         </div>
       </div>
 
-      {/* Checkbox Toggles */}
+      {/* 6. Checkbox Toggles */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', borderTop: '1px solid var(--panel-border)', paddingTop: '0.85rem' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
           <input

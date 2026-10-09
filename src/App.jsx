@@ -13,23 +13,23 @@ import { saveMazeToHistory, getHistoryList } from './utils/storage';
 
 const getAgeInfo = (key) => AGE_LEVELS[key.toUpperCase()] || AGE_LEVELS.TODDLER;
 
-// Delay before a slider change regenerates the maze, so dragging the
-// slider produces one maze (and one history entry) instead of dozens.
 const SIZE_DEBOUNCE_MS = 300;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('generator'); // 'generator' | 'print'
   const [currentAgeKey, setCurrentAgeKey] = useState('toddler');
 
-  // Maze Configuration State (mazes are always square)
+  // Maze Configuration State
   const defaultAgeInfo = AGE_LEVELS.TODDLER;
   const [gridSize, setGridSize] = useState(defaultAgeInfo.defaultCols);
+  const [mazeShape, setMazeShape] = useState(defaultAgeInfo.defaultShape || 'circle');
+  const [lineStyle, setLineStyle] = useState(defaultAgeInfo.defaultLineStyle || 'rounded');
   const [illustrationSetId, setIllustrationSetId] = useState(defaultAgeInfo.defaultIllustrationSet);
   const [showSolution, setShowSolution] = useState(false);
 
   // Worksheet Text Customization
-  const [worksheetTitle, setWorksheetTitle] = useState('小兔尋找胡蘿蔔迷宮大冒險');
-  const [worksheetPrompt, setWorksheetPrompt] = useState('幫助可愛的小兔子劃出正確路線，找到好吃的胡蘿蔔！');
+  const [worksheetTitle, setWorksheetTitle] = useState('圓弧小兔尋找胡蘿蔔迷宮大冒險');
+  const [worksheetPrompt, setWorksheetPrompt] = useState('順著平滑柔和的圓弧通道，幫助可愛小兔找到胡蘿蔔！');
   const [includeAnswerKey, setIncludeAnswerKey] = useState(true);
   const [showDpad, setShowDpad] = useState(true);
 
@@ -42,9 +42,17 @@ export default function App() {
   const [victoryStats, setVictoryStats] = useState(null);
   const [isVictoryOpen, setIsVictoryOpen] = useState(false);
 
-  // Latest settings, readable from timers/callbacks without stale closures
+  // Latest settings ref to avoid stale closures
   const settingsRef = useRef({});
-  settingsRef.current = { currentAgeKey, gridSize, illustrationSetId, worksheetTitle, worksheetPrompt };
+  settingsRef.current = {
+    currentAgeKey,
+    gridSize,
+    mazeShape,
+    lineStyle,
+    illustrationSetId,
+    worksheetTitle,
+    worksheetPrompt
+  };
 
   const debounceRef = useRef(null);
   const didInitRef = useRef(false);
@@ -56,23 +64,28 @@ export default function App() {
     }
   };
 
-  // Generate a maze and record it in history. Any argument left undefined
-  // falls back to the latest current setting.
+  // Generate maze
   const handleGenerateMaze = useCallback((overrides = {}) => {
     cancelPendingRegen();
     const s = { ...settingsRef.current, ...overrides };
     const ageInfo = getAgeInfo(s.currentAgeKey);
     const setInfo = ILLUSTRATION_SETS[s.illustrationSetId] || ILLUSTRATION_SETS['rabbit-carrot'];
 
-    const newMaze = generateMaze(s.gridSize, s.gridSize, ageInfo.braidRatio);
+    const newMaze = generateMaze(
+      s.gridSize,
+      s.gridSize,
+      ageInfo.braidRatio,
+      s.mazeShape || 'square',
+      s.lineStyle || 'rounded'
+    );
     setMaze(newMaze);
 
     saveMazeToHistory({
       title: s.worksheetTitle || `${ageInfo.name}迷宮`,
       ageLevel: s.currentAgeKey,
       ageLevelName: ageInfo.name,
-      cols: s.gridSize,
-      rows: s.gridSize,
+      cols: newMaze.cols,
+      rows: newMaze.rows,
       illustrationSetId: s.illustrationSetId,
       mazeData: newMaze,
       prompt: s.worksheetPrompt || setInfo.prompt
@@ -80,7 +93,7 @@ export default function App() {
     setHistoryList(getHistoryList());
   }, []);
 
-  // Load history and generate the first maze once (guarded against StrictMode double-run)
+  // Initial load
   useEffect(() => {
     if (didInitRef.current) return;
     didInitRef.current = true;
@@ -90,16 +103,28 @@ export default function App() {
 
   useEffect(() => cancelPendingRegen, []);
 
-  // Sync body theme class with selected age group. Layout effect so it is applied
-  // before MazeCanvas's effect reads the theme's CSS variables.
+  // Sync body theme class with selected age group
   useLayoutEffect(() => {
     document.body.className = `theme-${currentAgeKey}`;
   }, [currentAgeKey]);
 
+  // Size change handler with debounce
   const handleSizeChange = (size) => {
     setGridSize(size);
     cancelPendingRegen();
     debounceRef.current = setTimeout(() => handleGenerateMaze({ gridSize: size }), SIZE_DEBOUNCE_MS);
+  };
+
+  // Shape change handler
+  const handleShapeChange = (shape) => {
+    setMazeShape(shape);
+    handleGenerateMaze({ mazeShape: shape });
+  };
+
+  // Line style change handler
+  const handleLineStyleChange = (style) => {
+    setLineStyle(style);
+    handleGenerateMaze({ lineStyle: style });
   };
 
   // Age group selection change handler
@@ -108,9 +133,13 @@ export default function App() {
     const setId = ageInfo.defaultIllustrationSet;
     const setInfo = ILLUSTRATION_SETS[setId] || ILLUSTRATION_SETS['rabbit-carrot'];
     const title = `${ageInfo.name}迷宮學習單`;
+    const targetShape = ageInfo.defaultShape || 'square';
+    const targetLineStyle = ageInfo.defaultLineStyle || 'rounded';
 
     setCurrentAgeKey(newAgeKey);
     setGridSize(ageInfo.defaultCols);
+    setMazeShape(targetShape);
+    setLineStyle(targetLineStyle);
     setIllustrationSetId(setId);
     setWorksheetTitle(title);
     setWorksheetPrompt(setInfo.prompt);
@@ -118,13 +147,15 @@ export default function App() {
     handleGenerateMaze({
       currentAgeKey: newAgeKey,
       gridSize: ageInfo.defaultCols,
+      mazeShape: targetShape,
+      lineStyle: targetLineStyle,
       illustrationSetId: setId,
       worksheetTitle: title,
       worksheetPrompt: setInfo.prompt
     });
   };
 
-  // Load historical maze snapshot (does not create a new history entry)
+  // Load historical maze snapshot
   const handleLoadHistoryMaze = (historyItem) => {
     if (!historyItem || !historyItem.mazeData) return;
     cancelPendingRegen();
@@ -133,6 +164,8 @@ export default function App() {
     setIllustrationSetId(historyItem.illustrationSetId || 'rabbit-carrot');
     setWorksheetTitle(historyItem.title || '迷宮學習單');
     if (historyItem.prompt) setWorksheetPrompt(historyItem.prompt);
+    if (historyItem.mazeData.shape) setMazeShape(historyItem.mazeData.shape);
+    if (historyItem.mazeData.lineStyle) setLineStyle(historyItem.mazeData.lineStyle);
     setMaze(historyItem.mazeData);
   };
 
@@ -173,6 +206,10 @@ export default function App() {
                 currentAgeKey={currentAgeKey}
                 gridSize={gridSize}
                 onSizeChange={handleSizeChange}
+                mazeShape={mazeShape}
+                onShapeChange={handleShapeChange}
+                lineStyle={lineStyle}
+                onLineStyleChange={handleLineStyleChange}
                 illustrationSetId={illustrationSetId}
                 setIllustrationSetId={setIllustrationSetId}
                 showSolution={showSolution}

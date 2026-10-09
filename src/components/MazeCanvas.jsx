@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { ILLUSTRATION_SETS } from '../assets/illustrations';
 import { AGE_LEVELS } from '../utils/mazeGenerator';
+import { renderMazeOnCanvas } from '../utils/canvasRenderer';
 
 export default function MazeCanvas({
   maze,
@@ -155,94 +156,25 @@ export default function MazeCanvas({
 
     ctx.scale(dpr, dpr);
 
-    const cellSize = displaySize / maze.cols;
-    const wallWidth = Math.max(2, cellSize * ageInfo.wallWidthRatio);
+    const wallColor = getComputedStyle(document.body).getPropertyValue('--maze-wall').trim() || '#333333';
+    const bgColor = getComputedStyle(document.body).getPropertyValue('--maze-bg').trim() || '#FFFFFF';
+    const solutionColor = getComputedStyle(document.body).getPropertyValue('--maze-solution').trim() || '#FF477E';
 
-    // Clear background
-    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--maze-bg').trim() || '#FFFFFF';
-    ctx.fillRect(0, 0, displaySize, displaySize);
-
-    // Draw Solution Path if enabled
-    if (showSolution && maze.solution && maze.solution.length > 0) {
-      ctx.beginPath();
-      ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--maze-solution').trim() || '#FF477E';
-      ctx.lineWidth = Math.max(3, cellSize * 0.28);
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      maze.solution.forEach((p, index) => {
-        const x = p.col * cellSize + cellSize / 2;
-        const y = p.row * cellSize + cellSize / 2;
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    }
-
-    // Draw Player Visited Path
-    if (visitedPath.length > 1) {
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(77, 150, 255, 0.4)';
-      ctx.lineWidth = Math.max(3, cellSize * 0.22);
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      visitedPath.forEach((p, index) => {
-        const x = p.col * cellSize + cellSize / 2;
-        const y = p.row * cellSize + cellSize / 2;
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    }
-
-    // Draw Maze Walls
-    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--maze-wall').trim() || '#333333';
-    ctx.lineWidth = wallWidth;
-    ctx.lineCap = 'round';
-
-    for (let r = 0; r < maze.rows; r++) {
-      for (let c = 0; c < maze.cols; c++) {
-        const cell = maze.grid[r][c];
-        const x = c * cellSize;
-        const y = r * cellSize;
-
-        // Draw top wall
-        if (cell.walls.top) {
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(x + cellSize, y);
-          ctx.stroke();
-        }
-        // Draw right wall
-        if (cell.walls.right) {
-          ctx.beginPath();
-          ctx.moveTo(x + cellSize, y);
-          ctx.lineTo(x + cellSize, y + cellSize);
-          ctx.stroke();
-        }
-        // Draw bottom wall
-        if (cell.walls.bottom) {
-          ctx.beginPath();
-          ctx.moveTo(x, y + cellSize);
-          ctx.lineTo(x + cellSize, y + cellSize);
-          ctx.stroke();
-        }
-        // Draw left wall
-        if (cell.walls.left) {
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(x, y + cellSize);
-          ctx.stroke();
-        }
-      }
-    }
-
-    // Draw Outer Frame
-    ctx.lineWidth = wallWidth * 1.4;
-    ctx.strokeRect(0, 0, displaySize, displaySize);
+    // Render Walls, Paths, and Background with chosen lineStyle (rounded, organic, or straight)
+    renderMazeOnCanvas(ctx, maze, {
+      displaySize,
+      wallColor,
+      bgColor,
+      wallWidthRatio: ageInfo.wallWidthRatio,
+      lineStyle: maze.lineStyle || ageInfo.defaultLineStyle || 'rounded',
+      solutionColor,
+      showSolution,
+      visitedPath,
+      isPrint: false
+    });
 
     // Draw Player Token
+    const cellSize = displaySize / maze.cols;
     const px = playerPos.col * cellSize + cellSize / 2;
     const py = playerPos.row * cellSize + cellSize / 2;
     const playerRadius = Math.max(5, cellSize * 0.28);
