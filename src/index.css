@@ -84,6 +84,32 @@ button, input, select {
   }
 }
 
+.maze-3d-stage {
+  width: 100%;
+  height: min(68vh, 520px);
+  border-radius: var(--card-radius, 12px);
+  overflow: hidden;
+  background: #111;
+}
+
+@media (min-width: 1024px) {
+  .maze-3d-stage {
+    height: min(72vh, 640px);
+  }
+}
+
+.maze-3d-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+}
+
 /* Buttons */
 .btn {
   display: inline-flex;

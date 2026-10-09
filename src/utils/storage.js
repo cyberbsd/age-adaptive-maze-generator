@@ -31,7 +31,8 @@ export function saveMazeToHistory(mazeRecord) {
       illustrationSetId: mazeRecord.illustrationSetId || 'rabbit-carrot',
       mazeData: mazeRecord.mazeData,
       thumbnail: mazeRecord.thumbnail || null, // Base64 data URL
-      prompt: mazeRecord.prompt || ''
+      prompt: mazeRecord.prompt || '',
+      worldTopic: mazeRecord.worldTopic || ''
     };
 
     // Prepend to list

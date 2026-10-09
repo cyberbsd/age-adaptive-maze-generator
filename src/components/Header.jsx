@@ -1,5 +1,5 @@
 import React from 'react';
-import { Compass, Printer, History, RefreshCw, Sparkles, Layers } from 'lucide-react';
+import { Compass, Printer, History, RefreshCw, Sparkles, Layers, Footprints } from 'lucide-react';
 import { AGE_LEVELS } from '../utils/mazeGenerator';
 
 export default function Header({
@@ -68,6 +68,14 @@ export default function Header({
             style={{ border: 'none' }}
           >
             <Printer size={16} /> A4 學習單列印
+          </button>
+
+          <button
+            className={`btn btn-sm ${activeTab === 'walk' ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setActiveTab('walk')}
+            style={{ border: 'none' }}
+          >
+            <Footprints size={16} /> 3D 漫步
           </button>
         </div>
 

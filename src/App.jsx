@@ -6,18 +6,22 @@ import MazeCanvas from './components/MazeCanvas';
 import PrintView from './components/PrintView';
 import HistoryModal from './components/HistoryModal';
 import VictoryModal from './components/VictoryModal';
+import Maze3DView from './components/Maze3DView';
 
 import { generateMaze, AGE_LEVELS } from './utils/mazeGenerator';
 import { ILLUSTRATION_SETS } from './assets/illustrations';
 import { saveMazeToHistory, getHistoryList } from './utils/storage';
+import { defaultTopicForAge, WORLD_TOPICS } from './utils/worldTopics';
 
 const getAgeInfo = (key) => AGE_LEVELS[key.toUpperCase()] || AGE_LEVELS.TODDLER;
 
 const SIZE_DEBOUNCE_MS = 300;
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('generator'); // 'generator' | 'print'
+  const [activeTab, setActiveTab] = useState('generator'); // 'generator' | 'print' | 'walk'
   const [currentAgeKey, setCurrentAgeKey] = useState('toddler');
+  const [worldTopic, setWorldTopic] = useState(() => defaultTopicForAge('toddler'));
+  const [topicPinned, setTopicPinned] = useState(false);
 
   // Maze Configuration State
   const defaultAgeInfo = AGE_LEVELS.TODDLER;
@@ -51,11 +55,14 @@ export default function App() {
     lineStyle,
     illustrationSetId,
     worksheetTitle,
-    worksheetPrompt
+    worksheetPrompt,
+    worldTopic
   };
 
   const debounceRef = useRef(null);
   const didInitRef = useRef(false);
+  const topicPinnedRef = useRef(false);
+  topicPinnedRef.current = topicPinned;
 
   const cancelPendingRegen = () => {
     if (debounceRef.current) {
@@ -70,6 +77,11 @@ export default function App() {
     const s = { ...settingsRef.current, ...overrides };
     const ageInfo = getAgeInfo(s.currentAgeKey);
     const setInfo = ILLUSTRATION_SETS[s.illustrationSetId] || ILLUSTRATION_SETS['rabbit-carrot'];
+
+    const topic = topicPinnedRef.current
+      ? (s.worldTopic || defaultTopicForAge(s.currentAgeKey))
+      : (overrides.worldTopic || defaultTopicForAge(s.currentAgeKey));
+    setWorldTopic(topic);
 
     const newMaze = generateMaze(
       s.gridSize,
@@ -88,7 +100,8 @@ export default function App() {
       rows: newMaze.rows,
       illustrationSetId: s.illustrationSetId,
       mazeData: newMaze,
-      prompt: s.worksheetPrompt || setInfo.prompt
+      prompt: s.worksheetPrompt || setInfo.prompt,
+      worldTopic: topic
     });
     setHistoryList(getHistoryList());
   }, []);
@@ -143,6 +156,10 @@ export default function App() {
     setIllustrationSetId(setId);
     setWorksheetTitle(title);
     setWorksheetPrompt(setInfo.prompt);
+    const nextTopic = defaultTopicForAge(newAgeKey);
+    topicPinnedRef.current = false;
+    setTopicPinned(false);
+    setWorldTopic(nextTopic);
 
     handleGenerateMaze({
       currentAgeKey: newAgeKey,
@@ -151,8 +168,17 @@ export default function App() {
       lineStyle: targetLineStyle,
       illustrationSetId: setId,
       worksheetTitle: title,
-      worksheetPrompt: setInfo.prompt
+      worksheetPrompt: setInfo.prompt,
+      worldTopic: nextTopic
     });
+  };
+
+  const handleTopicChange = (topicId) => {
+    if (!WORLD_TOPICS[topicId]) return;
+    topicPinnedRef.current = true;
+    setTopicPinned(true);
+    setWorldTopic(topicId);
+    settingsRef.current.worldTopic = topicId;
   };
 
   // Load historical maze snapshot
@@ -166,6 +192,13 @@ export default function App() {
     if (historyItem.prompt) setWorksheetPrompt(historyItem.prompt);
     if (historyItem.mazeData.shape) setMazeShape(historyItem.mazeData.shape);
     if (historyItem.mazeData.lineStyle) setLineStyle(historyItem.mazeData.lineStyle);
+    if (historyItem.worldTopic && WORLD_TOPICS[historyItem.worldTopic]) {
+      setWorldTopic(historyItem.worldTopic);
+      setTopicPinned(true);
+    } else {
+      setWorldTopic(defaultTopicForAge(historyItem.ageLevel));
+      setTopicPinned(false);
+    }
     setMaze(historyItem.mazeData);
   };
 
@@ -198,7 +231,7 @@ export default function App() {
         </div>
 
         {/* Tab View: Generator & Play vs A4 Print Preview */}
-        {activeTab === 'generator' ? (
+        {activeTab !== 'print' ? (
           <div className="workspace-grid">
             {/* Control Panel */}
             <div className="no-print">
@@ -222,12 +255,22 @@ export default function App() {
                 setIncludeAnswerKey={setIncludeAnswerKey}
                 showDpad={showDpad}
                 setShowDpad={setShowDpad}
+                worldTopic={worldTopic}
+                onTopicChange={handleTopicChange}
               />
             </div>
 
-            {/* Interactive Maze Canvas */}
+            {/* Interactive Maze Canvas or first-person walk */}
             <div>
-              {maze && (
+              {maze && activeTab === 'walk' && (
+                <Maze3DView
+                  maze={maze}
+                  topicId={worldTopic}
+                  onVictory={handleVictory}
+                  onExit3D={() => setActiveTab('generator')}
+                />
+              )}
+              {maze && activeTab !== 'walk' && (
                 <MazeCanvas
                   maze={maze}
                   currentAgeKey={currentAgeKey}

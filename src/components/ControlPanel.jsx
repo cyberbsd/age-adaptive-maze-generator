@@ -2,6 +2,7 @@ import React from 'react';
 import { Image as ImageIcon, Eye, FileText, CheckSquare, Sliders, Gamepad2, Shapes, Sparkles } from 'lucide-react';
 import { ILLUSTRATION_SETS } from '../assets/illustrations';
 import { AGE_LEVELS, MAZE_SHAPES, LINE_STYLES } from '../utils/mazeGenerator';
+import WorldTopicPicker from './WorldTopicPicker';
 
 export default function ControlPanel({
   currentAgeKey,
@@ -22,7 +23,9 @@ export default function ControlPanel({
   includeAnswerKey,
   setIncludeAnswerKey,
   showDpad,
-  setShowDpad
+  setShowDpad,
+  worldTopic,
+  onTopicChange
 }) {
   const currentAgeInfo = AGE_LEVELS[currentAgeKey.toUpperCase()] || AGE_LEVELS.TODDLER;
 
@@ -40,6 +43,8 @@ export default function ControlPanel({
           <Sliders size={18} color="var(--primary)" /> 迷宮造型與參數設定
         </h3>
       </div>
+
+      <WorldTopicPicker worldTopic={worldTopic} onTopicChange={onTopicChange} />
 
       {/* 1. 迷宮外觀造型 (Shape) */}
       <div>
