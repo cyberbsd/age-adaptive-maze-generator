@@ -52,6 +52,11 @@ export default function Maze3DView({
     turnRight: false,
   });
   const yawNudgeRef = useRef(0);
+  // Stick up is +forward (same as W). Stick right is +strafe (same as D).
+  const stickRef = useRef({ x: 0, y: 0 });
+  const stickPtr = useRef(null);
+  const stickOrigin = useRef({ x: 0, y: 0 });
+  const knobRef = useRef(null);
 
   const frameRef = useRef(null);
   const [timeElapsed, setTimeElapsed] = useState(0);
@@ -80,9 +85,10 @@ export default function Maze3DView({
     const camera = new THREE.PerspectiveCamera(FOV_Y, width / height, 0.08, 240);
     camera.rotation.order = 'YXZ';
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.replaceChildren(renderer.domElement);
 
@@ -151,6 +157,8 @@ export default function Maze3DView({
       if (keys.backward) forwardAmount -= 1;
       if (keys.right) strafeAmount += 1;
       if (keys.left) strafeAmount -= 1;
+      forwardAmount += stickRef.current.y;
+      strafeAmount += stickRef.current.x;
 
       const distance = MOVE_SPEED * dt;
       const dx = fwd.x * forwardAmount * distance + right.x * strafeAmount * distance;
@@ -221,7 +229,9 @@ export default function Maze3DView({
 
     const canvas = renderer.domElement;
     canvas.style.touchAction = 'none';
-    const finePointer = window.matchMedia('(pointer: fine)').matches;
+    stickRef.current.x = 0;
+    stickRef.current.y = 0;
+    const canLock = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     let lookId = null;
     let lastX = 0;
     let lastY = 0;
@@ -234,7 +244,7 @@ export default function Maze3DView({
       clampPitch();
     };
     const onPointerDown = (event) => {
-      if (event.pointerType === 'mouse' && finePointer && canvas.requestPointerLock) {
+      if (event.pointerType === 'mouse' && canLock && canvas.requestPointerLock) {
         const lock = canvas.requestPointerLock();
         if (lock && typeof lock.catch === 'function') lock.catch(() => {});
         return;
@@ -247,7 +257,7 @@ export default function Maze3DView({
     };
     const onPointerMove = (event) => {
       if (event.pointerId !== lookId) return;
-      applyLook(event.clientX - lastX, event.clientY - lastY, 0.005);
+      applyLook(event.clientX - lastX, event.clientY - lastY, 0.0065);
       lastX = event.clientX;
       lastY = event.clientY;
     };
@@ -259,25 +269,35 @@ export default function Maze3DView({
       if (event.pointerId !== lookId) return;
       lookId = null;
     };
+    const blockTouchScroll = (event) => {
+      if (!event.target?.closest?.('.maze-3d-frame')) return;
+      if (event.cancelable) event.preventDefault();
+    };
     const onLock = () => setLocked(document.pointerLockElement === canvas);
     canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('pointermove', onPointerMove);
-    canvas.addEventListener('pointerup', endLook);
-    canvas.addEventListener('pointercancel', endLook);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', endLook);
+    window.addEventListener('pointercancel', endLook);
     window.addEventListener('mousemove', onMouseMove);
+    frameRef.current?.addEventListener('touchmove', blockTouchScroll, { passive: false });
     document.addEventListener('pointerlockchange', onLock);
+    const resizeId = requestAnimationFrame(onResize);
 
     return () => {
       cancelAnimationFrame(frameId);
+      cancelAnimationFrame(resizeId);
       window.clearTimeout(winTimer);
       window.removeEventListener('resize', onResize);
       window.visualViewport?.removeEventListener('resize', onResize);
       canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup', endLook);
-      canvas.removeEventListener('pointercancel', endLook);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', endLook);
+      window.removeEventListener('pointercancel', endLook);
       window.removeEventListener('mousemove', onMouseMove);
+      frameRef.current?.removeEventListener('touchmove', blockTouchScroll);
       document.removeEventListener('pointerlockchange', onLock);
+      stickRef.current.x = 0;
+      stickRef.current.y = 0;
       if (document.pointerLockElement) document.exitPointerLock();
       world.dispose();
       goalGeo.dispose();
@@ -348,9 +368,55 @@ export default function Maze3DView({
     onContextMenu: (event) => event.preventDefault(),
   });
 
+  const STICK_RADIUS = 46;
+  const placeKnob = (x, y) => {
+    if (knobRef.current) knobRef.current.style.transform = `translate(${x}px, ${y}px)`;
+  };
+  const applyStick = (clientX, clientY) => {
+    const dx = clientX - stickOrigin.current.x;
+    const dy = clientY - stickOrigin.current.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1) {
+      stickRef.current.x = 0;
+      stickRef.current.y = 0;
+      placeKnob(0, 0);
+      return;
+    }
+    const clamped = Math.min(STICK_RADIUS, dist);
+    placeKnob((dx / dist) * clamped, (dy / dist) * clamped);
+    const mag = clamped / STICK_RADIUS;
+    if (mag < 0.18) {
+      stickRef.current.x = 0;
+      stickRef.current.y = 0;
+      return;
+    }
+    // Up on screen is +forward. Right on screen is +strafe.
+    stickRef.current.x = (dx / dist) * mag;
+    stickRef.current.y = (-dy / dist) * mag;
+  };
+  const onStickDown = (event) => {
+    event.stopPropagation();
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* pointer already gone */ }
+    stickPtr.current = event.pointerId;
+    const rect = event.currentTarget.getBoundingClientRect();
+    stickOrigin.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    applyStick(event.clientX, event.clientY);
+  };
+  const onStickMove = (event) => {
+    if (event.pointerId !== stickPtr.current) return;
+    applyStick(event.clientX, event.clientY);
+  };
+  const onStickUp = (event) => {
+    if (stickPtr.current !== null && event.pointerId !== stickPtr.current) return;
+    stickPtr.current = null;
+    stickRef.current.x = 0;
+    stickRef.current.y = 0;
+    placeKnob(0, 0);
+  };
+
   return (
-    <div ref={frameRef} className="glass-panel" style={{ padding: '1.25rem', position: 'relative' }}>
-      <div style={{
+    <div ref={frameRef} className="glass-panel maze-3d-panel" style={{ padding: '1.25rem', position: 'relative' }}>
+      <div className="maze-3d-bar" style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -360,9 +426,9 @@ export default function Maze3DView({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span className="badge"><Footprints size={14} /> 第一人稱漫步</span>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          <span className="maze-3d-hud-text" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
             {coarsePointer
-              ? '拖曳畫面環顧，按住按鈕行走'
+              ? '左搖桿行走，拖曳畫面環顧'
               : (locked ? '滑鼠環顧，WASD 移動，空白鍵跳躍' : '點擊畫面鎖定滑鼠')}
           </span>
         </div>
@@ -375,68 +441,42 @@ export default function Maze3DView({
         </div>
       </div>
 
-      <div style={{ position: 'relative' }}>
-        <div ref={mountRef} className="maze-3d-stage" />
-        <div className="maze-3d-crosshair" />
-      </div>
-
-      <div className="maze-3d-touch" style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        marginTop: '1rem',
-        gap: '0.75rem',
-      }}>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ width: '54px', height: '54px', padding: 0, borderRadius: '50%' }}
-            {...control('turnLeft')}
-          >
-            ↺
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ width: '54px', height: '54px', padding: 0, borderRadius: '50%' }}
-            {...control('turnRight')}
-          >
-            ↻
-          </button>
+      <div className="maze-3d-frame">
+        <div className="maze-3d-view">
+          <div ref={mountRef} className="maze-3d-stage" />
+          <div className="maze-3d-crosshair" />
+          <div className="maze-3d-lookhint">拖曳此處環顧</div>
         </div>
 
-        <div className="maze-3d-note" style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          滑鼠環顧 · WASD 行走 · 空白鍵跳躍。牆高過任何跳躍。
-        </div>
-
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ width: '60px', height: '42px', padding: 0 }}
-              {...control('forward')}
-            >
-              ▲
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ width: '60px', height: '42px', padding: 0 }}
-              {...control('backward')}
-            >
-              ▼
-            </button>
+        <div className="maze-3d-touch">
+          <div
+            className="maze-3d-stick"
+            aria-label="移動搖桿"
+            onPointerDown={onStickDown}
+            onPointerMove={onStickMove}
+            onPointerUp={onStickUp}
+            onPointerCancel={onStickUp}
+            onContextMenu={(event) => event.preventDefault()}
+          >
+            <div ref={knobRef} className="maze-3d-stick-knob" />
           </div>
-          <button
-            type="button"
-            className="btn btn-primary"
-            style={{ width: '54px', height: '54px', padding: 0 }}
-            {...control('jump')}
-          >
-            跳
-          </button>
+
+          <div className="maze-3d-turn">
+            <button type="button" className="btn btn-secondary maze-3d-round" {...control('turnLeft')}>↺</button>
+            <button type="button" className="btn btn-secondary maze-3d-round" {...control('turnRight')}>↻</button>
+          </div>
+
+          <div className="maze-3d-note">
+            滑鼠環顧 · WASD 行走 · 空白鍵跳躍。牆高過任何跳躍。
+          </div>
+
+          <div className="maze-3d-move">
+            <div className="maze-3d-fb">
+              <button type="button" className="btn btn-primary maze-3d-wide" {...control('forward')}>▲</button>
+              <button type="button" className="btn btn-secondary maze-3d-wide" {...control('backward')}>▼</button>
+            </div>
+            <button type="button" className="btn btn-primary maze-3d-round" {...control('jump')}>跳</button>
+          </div>
         </div>
       </div>
     </div>

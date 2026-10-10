@@ -220,10 +220,10 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="main-content">
+      <main className={`main-content${activeTab === 'walk' ? ' walk-tab' : ''}`}>
         
         {/* Age Level Selector Card */}
-        <div className="no-print">
+        <div className="no-print age-panel">
           <AgeSelector
             currentAgeKey={currentAgeKey}
             onSelectAge={handleSelectAge}
