@@ -6,13 +6,19 @@ const UP_QUAT = new THREE.Quaternion();
 const loader = new THREE.TextureLoader();
 
 const TOPIC_MAPS = {
-  stone: { wall: '/textures/stone.jpg', floor: '/textures/stone.jpg', wallTile: 0.42, floorTile: 0.4 },
-  plants: { wall: '/textures/hedge.jpg', floor: '/textures/grass.jpg', wallTile: 0.9, floorTile: 0.75 },
-  spaceship: { wall: '/textures/hull-gray.jpg', floor: '/textures/deck-gray.jpg', wallTile: 0.55, floorTile: 0.85 },
+  stone: { wall: 'stone.jpg', floor: 'stone.jpg', wallTile: 0.28, floorTile: 0.32 },
+  plants: { wall: 'hedge.jpg', floor: 'grass.jpg', wallTile: 0.48, floorTile: 0.45 },
+  spaceship: { wall: 'hull-gray.jpg', floor: 'deck-gray.jpg', wallTile: 0.32, floorTile: 0.5 },
 };
 
-function loadMap(url) {
-  const texture = loader.load(url);
+/** Public files follow the page, so GitHub Pages `/repo/` still finds `textures/`. */
+export function publicTextureUrl(file, baseUrl = './', pageHref = 'http://localhost/') {
+  const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  return new URL(`${base}textures/${file}`, pageHref).href;
+}
+
+function loadMap(file) {
+  const texture = loader.load(publicTextureUrl(file, import.meta.env.BASE_URL, window.location.href));
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -75,10 +81,15 @@ export function buildTopic(scene, segments, topicId, cols, rows) {
   scene.background = new THREE.Color(topic.sky);
   scene.fog = new THREE.FogExp2(topic.sky, topic.fog);
 
-  const ambient = new THREE.AmbientLight(0xffffff, topic.id === 'spaceship' ? 0.95 : 0.62);
-  const hemi = new THREE.HemisphereLight(topic.sky, topic.floor, topic.id === 'spaceship' ? 0.72 : 0.55);
-  scene.add(ambient, hemi);
-  disposables.push(ambient, hemi);
+  const ambient = new THREE.AmbientLight(0xffffff, topic.id === 'spaceship' ? 1.15 : 1.05);
+  const hemi = new THREE.HemisphereLight(0xffffff, topic.floor, topic.id === 'spaceship' ? 0.75 : 0.9);
+  const sun = new THREE.DirectionalLight(0xfff6ea, topic.id === 'spaceship' ? 0.55 : 0.85);
+  const centerX = (cols * CELL) / 2;
+  const centerZ = (rows * CELL) / 2;
+  sun.position.set(centerX - 12, 26, centerZ + 8);
+  sun.target.position.set(centerX, 0, centerZ);
+  scene.add(ambient, hemi, sun, sun.target);
+  disposables.push(ambient, hemi, sun, sun.target);
 
   const maps = TOPIC_MAPS[topic.id] || TOPIC_MAPS.stone;
   const wallMap = loadMap(maps.wall);
@@ -166,7 +177,7 @@ export function buildTopic(scene, segments, topicId, cols, rows) {
     addInstanced(scene, stripGeo, stripMat, segments, stripScale, () => 1.25, disposables);
     const upper = stripMat.clone();
     upper.emissiveIntensity = 0.45;
-    addInstanced(scene, stripGeo, upper, segments, stripScale, () => 3.15, disposables);
+    addInstanced(scene, stripGeo, upper, segments, stripScale, () => Math.min(3.15, WALL_H - 0.35), disposables);
 
     const moonGeo = new THREE.SphereGeometry(4, 24, 16);
     const moonMat = new THREE.MeshBasicMaterial({ color: 0xc5d4e8 });

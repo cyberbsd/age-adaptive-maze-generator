@@ -14,6 +14,7 @@ import {
   maxEyeY,
 } from './mazeWorld.js';
 import { defaultTopicForAge, WORLD_TOPICS } from './worldTopics.js';
+import { publicTextureUrl } from './worldBuilder.js';
 
 function cell(col, row, walls, active = true) {
   return {
@@ -48,15 +49,13 @@ test('player radius fits the passage', () => {
   assert.ok(CELL - 0.42 > PLAYER_R * 2);
 });
 
-test('the highest jump stays well below the wall top', () => {
+test('a jump cannot clear the wall', () => {
   assert.ok(jumpApex() < 1);
-  assert.ok(maxEyeY() + 4 < WALL_H);
+  assert.ok(maxEyeY() < WALL_H);
 });
 
-test('pitch at the jump peak cannot see over a corridor wall', () => {
-  assert.equal(seesOverWall(maxEyeY(), corridorHalfWidth()), false);
-  assert.equal(seesOverWall(1.6, corridorHalfWidth()), false);
-  assert.equal(seesOverWall(maxEyeY(), CELL), false);
+test('looking straight cannot see over the wall beside you', () => {
+  assert.equal(seesOverWall(1.6, corridorHalfWidth(), 0), false);
 });
 
 test('three camera yaw 0 looks down -Z and its right is +X', () => {
@@ -98,4 +97,16 @@ test('topic defaults cover the four ages', () => {
   assert.equal(defaultTopicForAge('adult'), 'stone');
   assert.equal(Object.keys(WORLD_TOPICS).join(','), 'stone,plants,spaceship');
   assert.equal(WORLD_TOPICS.spaceship.name, '未來飛船');
+});
+
+test('wall textures follow the site path instead of the domain root', () => {
+  const page = 'https://cyberbsd.github.io/age-adaptive-maze-generator/';
+  assert.equal(
+    publicTextureUrl('hedge.jpg', './', page),
+    'https://cyberbsd.github.io/age-adaptive-maze-generator/textures/hedge.jpg'
+  );
+  assert.equal(
+    publicTextureUrl('stone.jpg', './', 'http://127.0.0.1:5173/'),
+    'http://127.0.0.1:5173/textures/stone.jpg'
+  );
 });

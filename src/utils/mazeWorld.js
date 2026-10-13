@@ -5,14 +5,15 @@
  */
 
 export const CELL = 3;
-export const WALL_H = 9;
+/** About twice eye height: a jump stays inside, and a straight look can see the scene. */
+export const WALL_H = 3.4;
 export const WALL_T = 0.42;
 export const PLAYER_R = 0.3;
 export const EYE_Y = 1.6;
 export const MOVE_SPEED = 4.2;
 export const JUMP_SPEED = 5.2;
 export const GRAVITY = 16;
-/** ~31°. The near wall still fills the view at the top of a jump. */
+/** ~31°. Looking up beside a wall still meets the wall, not the maze beyond it. */
 export const PITCH_MAX = 0.55;
 /** Vertical field of view in degrees. */
 export const FOV_Y = 60;

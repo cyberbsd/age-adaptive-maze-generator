@@ -96,7 +96,7 @@ export default function Maze3DView({
     const boxes = segmentBoxes(segments);
     const world = buildTopic(scene, segments, topic.id, maze.cols, maze.rows);
 
-    const playerLight = new THREE.PointLight(topic.light, topic.id === 'spaceship' ? 0.8 : 1.3, topic.id === 'spaceship' ? 28 : 16);
+    const playerLight = new THREE.PointLight(topic.light, topic.id === 'spaceship' ? 0.7 : 1.05, 40);
     scene.add(playerLight);
 
     const goalGeo = new THREE.TorusGeometry(0.7, 0.16, 12, 28);
