@@ -81,12 +81,12 @@ export function buildTopic(scene, segments, topicId, cols, rows) {
   scene.background = new THREE.Color(topic.sky);
   scene.fog = new THREE.FogExp2(topic.sky, topic.fog);
 
-  const ambient = new THREE.AmbientLight(0xffffff, topic.id === 'spaceship' ? 1.15 : 1.05);
-  const hemi = new THREE.HemisphereLight(0xffffff, topic.floor, topic.id === 'spaceship' ? 0.75 : 0.9);
-  const sun = new THREE.DirectionalLight(0xfff6ea, topic.id === 'spaceship' ? 0.55 : 0.85);
+  const ambient = new THREE.AmbientLight(0xffffff, topic.id === 'spaceship' ? 1.6 : 1.45);
+  const hemi = new THREE.HemisphereLight(0xffffff, topic.floor, topic.id === 'spaceship' ? 1.1 : 1.15);
+  const sun = new THREE.DirectionalLight(0xfff8ee, topic.id === 'spaceship' ? 0.95 : 1.1);
   const centerX = (cols * CELL) / 2;
   const centerZ = (rows * CELL) / 2;
-  sun.position.set(centerX - 12, 26, centerZ + 8);
+  sun.position.set(centerX - 12, 28, centerZ + 8);
   sun.target.position.set(centerX, 0, centerZ);
   scene.add(ambient, hemi, sun, sun.target);
   disposables.push(ambient, hemi, sun, sun.target);
