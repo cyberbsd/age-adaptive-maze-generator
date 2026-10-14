@@ -266,6 +266,8 @@ export default function App() {
                 <Maze3DView
                   maze={maze}
                   topicId={worldTopic}
+                  illustrationSetId={illustrationSetId}
+                  currentAgeKey={currentAgeKey}
                   onVictory={handleVictory}
                   onExit3D={() => setActiveTab('generator')}
                 />

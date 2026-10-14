@@ -17,6 +17,7 @@ import {
 } from '../utils/mazeWorld.js';
 import { buildTopic } from '../utils/worldBuilder.js';
 import { WORLD_TOPICS } from '../utils/worldTopics.js';
+import { spawnMazeNPCs, createGoalMascot } from '../utils/npcManager.js';
 
 const APEX = jumpApex();
 const EYE_LIMIT = maxEyeY();
@@ -35,6 +36,8 @@ function openingYaw(maze) {
 export default function Maze3DView({
   maze,
   topicId,
+  illustrationSetId,
+  currentAgeKey,
   onVictory,
   onExit3D,
 }) {
@@ -106,6 +109,14 @@ export default function Maze3DView({
     const goalZ = (maze.end.row + 0.5) * CELL;
     goal.position.set(goalX, 1.35, goalZ);
     scene.add(goal);
+
+    // Goal Mascot (Giant Carrot, Treasure Chest, or Energy Cube)
+    const mascot = createGoalMascot(topic.id, illustrationSetId);
+    mascot.position.set(goalX, 0, goalZ);
+    scene.add(mascot);
+
+    // Spawn friendly guide NPCs along open corridors & dead ends
+    const npcs = spawnMazeNPCs(scene, maze, topic.id, illustrationSetId);
 
     const startX = (maze.start.col + 0.5) * CELL;
     const startZ = (maze.start.row + 0.5) * CELL;
@@ -200,6 +211,33 @@ export default function Maze3DView({
 
       goal.rotation.y += dt * 1.4;
       goal.rotation.x += dt * 0.6;
+
+      // Animate Goal Mascot (floating bob + gentle rotation)
+      const elapsed = (now - startedAt) / 1000;
+      mascot.position.y = Math.sin(elapsed * 2.4) * 0.12;
+      mascot.rotation.y += dt * 0.8;
+
+      // Animate NPCs and show speech bubbles when player is near
+      npcs.forEach((npc) => {
+        const u = npc.userData;
+        const bob = Math.sin(elapsed * u.bobSpeed) * u.bobHeight;
+        npc.position.y = (u.baseY || 0) + bob;
+
+        // Make NPC smoothly face towards the player when approaching
+        const dx = motion.x - npc.position.x;
+        const dz = motion.z - npc.position.z;
+        const distToPlayer = Math.hypot(dx, dz);
+
+        if (distToPlayer < 4.2) {
+          const targetAngle = Math.atan2(dx, dz);
+          npc.rotation.y = THREE.MathUtils.lerp(npc.rotation.y, targetAngle, 0.08);
+          if (u.bubble) {
+            u.bubble.visible = true;
+          }
+        } else if (u.bubble) {
+          u.bubble.visible = false;
+        }
+      });
 
       const dist = Math.hypot(motion.x - goalX, motion.z - goalZ);
       if (dist < 1.1 && !motion.won) {
